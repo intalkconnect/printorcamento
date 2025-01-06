@@ -1,4 +1,13 @@
 {
+  "name": "puppeteer-chrome-project",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node app.js",
+    "postinstall": "puppeteer install"
+  },
+  "puppeteer": {
+    "product": "chrome"
+  },
   "dependencies": {
     "express": "^4.21.2",
     "puppeteer": "^23.11.1",
