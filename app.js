@@ -48,8 +48,25 @@ const removeOldFiles = (directory, maxAgeInHours) => {
     });
 };
 
-// Caminho para o binário do Chromium
-const CHROMIUM_PATH = '/usr/bin/chromium-browser'; // Ajuste o caminho conforme necessário
+// Caminhos possíveis do Chromium
+const CHROMIUM_PATHS = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/snap/bin/chromium',
+];
+
+// Detectar o caminho correto do Chromium
+const getChromiumPath = () => {
+    for (const path of CHROMIUM_PATHS) {
+        if (fs.existsSync(path)) {
+            console.log(`Chromium found at: ${path}`);
+            return path;
+        }
+    }
+    throw new Error('Chromium not found. Please check the installation.');
+};
+
+const CHROMIUM_PATH = getChromiumPath();
 
 // Inicializar navegador Puppeteer global para reutilização
 let browser;
