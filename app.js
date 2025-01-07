@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 
 // Servir arquivos estáticos do diretório "archive"
-app.use('/screenshots', express.static(path.join(__dirname, 'archive')));
+app.use('/archives', express.static(path.join(__dirname, 'archives')));
 
 // Função auxiliar para validar o nome do arquivo
 const isValidFilename = (filename) => /^[a-zA-Z0-9_-]+$/.test(filename);
@@ -110,7 +110,7 @@ app.post('/capture', async (req, res) => {
         }
 
         // Retornar a URL pública da imagem redimensionada
-        const imageUrl = `${req.protocol}://${req.get('host')}/screenshots/${filename}.png`;
+        const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filename}.png`;
         res.status(200).send({ imageUrl });
 
     } catch (error) {
@@ -133,5 +133,5 @@ app.listen(PORT, () => {
 // Executar limpeza periódica de arquivos antigos
 setInterval(() => {
     console.log('Running cleanup task...');
-    removeOldFiles(path.join(__dirname, 'archive'), 24);
+    removeOldFiles(path.join(__dirname, 'archives'), 24);
 }, 60 * 60 * 1000);
