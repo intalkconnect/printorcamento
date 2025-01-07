@@ -33,6 +33,9 @@ RUN git clone https://github.com/intalkconnect/printorcamento.git /code
 # Instalar as dependências do Node.js
 RUN npm install
 
+# Configurar variável de ambiente para o Puppeteer usar o Chromium instalado
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 # Expor a porta 3000
 EXPOSE 3000
 
