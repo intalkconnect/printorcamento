@@ -1,9 +1,10 @@
 # Usar uma imagem Node.js oficial como base
 FROM node:18-slim
 
-# Instalar Git para clonar o repositório
+# Instalar dependências do sistema e o Chromium
 RUN apt-get update && apt-get install -y \
     git \
+    chromium \
     libnss3 \
     libatk1.0-0 \
     libcups2 \
@@ -31,9 +32,6 @@ RUN git clone https://github.com/intalkconnect/printorcamento.git /code
 
 # Instalar as dependências do Node.js
 RUN npm install
-
-# Garantir que o Puppeteer use o Chromium embutido
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
 
 # Expor a porta 3000
 EXPOSE 3000
