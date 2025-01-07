@@ -7,12 +7,13 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
-// Servir arquivos estáticos do diretório "archive"
+// Servir arquivos estáticos do diretório "archives"
 app.use('/archives', express.static(path.join(__dirname, 'archives')));
 
 // Função auxiliar para validar o nome do arquivo
 const isValidFilename = (filename) => /^[a-zA-Z0-9_-]+$/.test(filename);
 
+// Função para remover arquivos antigos
 const removeOldFiles = (directory, maxAgeInHours) => {
     const now = Date.now();
     const maxAgeInMilliseconds = maxAgeInHours * 60 * 60 * 1000;
@@ -47,6 +48,25 @@ const removeOldFiles = (directory, maxAgeInHours) => {
     });
 };
 
+// Caminho para o binário do Chromium
+const CHROMIUM_PATH = '/usr/bin/chromium-browser'; // Ajuste o caminho conforme necessário
+
+// Inicializar navegador Puppeteer global para reutilização
+let browser;
+
+(async () => {
+    console.log('Launching Puppeteer with Chromium...');
+    browser = await puppeteer.launch({
+        headless: true,
+        executablePath: CHROMIUM_PATH, // Usar o Chromium instalado no sistema
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+})();
+
+// Fila para gerenciar páginas simultâneas
+const MAX_PAGES = 5;
+const queue = [];
+
 // Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
     const { url, selector, filename, width } = req.body;
@@ -59,20 +79,21 @@ app.post('/capture', async (req, res) => {
         return res.status(400).send({ error: 'Invalid filename format. Use only letters, numbers, underscores, or dashes.' });
     }
 
-    let browser;
+    if (queue.length >= MAX_PAGES) {
+        return res.status(503).send({ error: 'Server busy. Try again later.' });
+    }
+
+    queue.push(true); // Adicionar à fila
+
     try {
-        console.log('Launching browser...');
-        browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'], // Configuração para execução como root
-        });
+        console.log('Opening new page...');
         const page = await browser.newPage();
 
         console.log('Setting viewport for mobile resolution...');
         await page.setViewport({
-            width: 375, // Largura típica de um celular (ex.: iPhone X)
-            height: 812, // Altura típica de um celular
-            deviceScaleFactor: 2, // Simula densidade de pixels (ex.: Retina Display)
+            width: 375,
+            height: 812,
+            deviceScaleFactor: 2,
         });
 
         console.log(`Navigating to URL: ${url}`);
@@ -91,36 +112,31 @@ app.post('/capture', async (req, res) => {
             fs.mkdirSync(archiveDir, { recursive: true });
         }
 
-        // Caminho completo para salvar a imagem original
         const originalScreenshotPath = path.join(archiveDir, `${filename}-original.png`);
         const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
         console.log(`Saving screenshot to: ${originalScreenshotPath}`);
         await element.screenshot({ path: originalScreenshotPath });
 
-        // Redimensionar a imagem com caminho de saída diferente
         console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
         await sharp(originalScreenshotPath)
-            .resize({ width: parseInt(width) || 300 }) // Apenas largura, manter proporção
+            .resize({ width: parseInt(width) || 300 })
             .toFile(resizedScreenshotPath);
 
-        // Remover o screenshot original
         if (fs.existsSync(originalScreenshotPath)) {
             fs.unlinkSync(originalScreenshotPath);
         }
 
-        // Retornar a URL pública da imagem redimensionada
+        console.log('Closing page...');
+        await page.close();
+
         const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filename}.png`;
         res.status(200).send({ imageUrl });
-
     } catch (error) {
         console.error(`Error: ${error.message}`);
         res.status(500).send({ error: error.message });
     } finally {
-        if (browser) {
-            console.log('Closing browser...');
-            await browser.close();
-        }
+        queue.pop(); // Remover da fila
     }
 });
 
