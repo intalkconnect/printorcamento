@@ -66,21 +66,38 @@ const getChromiumPath = () => {
 
 const CHROMIUM_PATH = getChromiumPath();
 
-
 // Inicializar navegador Puppeteer global para reutilização
 let browser;
 
 (async () => {
-    console.log('Launching Puppeteer with Chromium...');
-browser = await puppeteer.launch({
-    headless: true,
-    executablePath: CHROMIUM_PATH, // Caminho correto detectado
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-    ],
-});
+    try {
+        console.log('Launching Puppeteer with Chromium...');
+        browser = await puppeteer.launch({
+            headless: true,
+            executablePath: CHROMIUM_PATH, // Caminho correto detectado
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+            ],
+        });
 
+        // Iniciar o servidor na porta 3000
+        const PORT = 3000;
+        app.listen(PORT, () => {
+            console.log(`API running on http://localhost:${PORT}`);
+        });
+
+        // Executar limpeza periódica de arquivos antigos
+        setInterval(() => {
+            console.log('Running cleanup task...');
+            removeOldFiles(path.join(__dirname, 'archives'), 24);
+        }, 60 * 60 * 1000); // Intervalo de 1 hora para limpar arquivos antigos
+
+    } catch (error) {
+        console.error('Error launching Puppeteer:', error);
+        process.exit(1); // Encerrar o processo em caso de erro na inicialização
+    }
+})();
 
 // Fila para gerenciar páginas simultâneas
 const MAX_PAGES = 5;
@@ -158,15 +175,3 @@ app.post('/capture', async (req, res) => {
         queue.pop(); // Remover da fila
     }
 });
-
-// Iniciar o servidor na porta 3000
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
-});
-
-// Executar limpeza periódica de arquivos antigos
-setInterval(() => {
-    console.log('Running cleanup task...');
-    removeOldFiles(path.join(__dirname, 'archives'), 24);
-}, 60 * 60 * 1000); // Intervalo de 1 hora para limpar arquivos antigos
