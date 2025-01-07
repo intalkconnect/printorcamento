@@ -48,14 +48,12 @@ const removeOldFiles = (directory, maxAgeInHours) => {
     });
 };
 
-// Caminhos possíveis do Chromium
 const CHROMIUM_PATHS = [
-    '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
     '/snap/bin/chromium',
 ];
 
-// Detectar o caminho correto do Chromium
 const getChromiumPath = () => {
     for (const path of CHROMIUM_PATHS) {
         if (fs.existsSync(path)) {
@@ -68,17 +66,21 @@ const getChromiumPath = () => {
 
 const CHROMIUM_PATH = getChromiumPath();
 
+
 // Inicializar navegador Puppeteer global para reutilização
 let browser;
 
 (async () => {
     console.log('Launching Puppeteer with Chromium...');
-    browser = await puppeteer.launch({
-        headless: true,
-        executablePath: CHROMIUM_PATH, // Usar o Chromium instalado no sistema
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-})();
+browser = await puppeteer.launch({
+    headless: true,
+    executablePath: CHROMIUM_PATH, // Caminho correto detectado
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+    ],
+});
+
 
 // Fila para gerenciar páginas simultâneas
 const MAX_PAGES = 5;
