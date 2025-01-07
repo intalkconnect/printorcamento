@@ -86,7 +86,7 @@ app.post('/capture', async (req, res) => {
             throw new Error('Element not found with the given selector.');
         }
 
-        const archiveDir = path.join(__dirname, 'archive');
+        const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
         }
