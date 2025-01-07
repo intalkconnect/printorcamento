@@ -169,4 +169,4 @@ app.listen(PORT, () => {
 setInterval(() => {
     console.log('Running cleanup task...');
     removeOldFiles(path.join(__dirname, 'archives'), 24);
-}, 60 * 60 * 1000);
+}, 60 * 60 * 1000); // Intervalo de 1 hora para limpar arquivos antigos
