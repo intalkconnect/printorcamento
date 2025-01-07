@@ -13,6 +13,40 @@ app.use('/screenshots', express.static(path.join(__dirname, 'archive')));
 // Função auxiliar para validar o nome do arquivo
 const isValidFilename = (filename) => /^[a-zA-Z0-9_-]+$/.test(filename);
 
+const removeOldFiles = (directory, maxAgeInHours) => {
+    const now = Date.now();
+    const maxAgeInMilliseconds = maxAgeInHours * 60 * 60 * 1000;
+
+    fs.readdir(directory, (err, files) => {
+        if (err) {
+            console.error(`Error reading directory ${directory}:`, err.message);
+            return;
+        }
+
+        files.forEach((file) => {
+            const filePath = path.join(directory, file);
+
+            fs.stat(filePath, (err, stats) => {
+                if (err) {
+                    console.error(`Error getting stats for file ${filePath}:`, err.message);
+                    return;
+                }
+
+                const fileAge = now - stats.mtimeMs;
+                if (fileAge > maxAgeInMilliseconds) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error(`Error deleting file ${filePath}:`, err.message);
+                        } else {
+                            console.log(`Deleted old file: ${filePath}`);
+                        }
+                    });
+                }
+            });
+        });
+    });
+};
+
 // Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
     const { url, selector, filename, width } = req.body;
@@ -95,3 +129,9 @@ const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`API running on http://localhost:${PORT}`);
 });
+
+// Executar limpeza periódica de arquivos antigos
+setInterval(() => {
+    console.log('Running cleanup task...');
+    removeOldFiles(path.join(__dirname, 'archive'), 24);
+}, 60 * 60 * 1000);
