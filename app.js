@@ -104,16 +104,15 @@ const MAX_PAGES = 5;
 const queue = [];
 
 // Endpoint para capturar screenshot
-// Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
-    const { url, selectors, filenamePrefix, width } = req.body;
+    const { url, selector, filename, width } = req.body;
 
-    if (!url || !Array.isArray(selectors) || selectors.length === 0 || !filenamePrefix) {
-        return res.status(400).send({ error: 'URL, selectors (array), and filenamePrefix are required.' });
+    if (!url || !selector || !filename) {
+        return res.status(400).send({ error: 'URL, selector, and filename are required.' });
     }
 
-    if (!isValidFilename(filenamePrefix)) {
-        return res.status(400).send({ error: 'Invalid filename prefix format. Use only letters, numbers, underscores, or dashes.' });
+    if (!isValidFilename(filename)) {
+        return res.status(400).send({ error: 'Invalid filename format. Use only letters, numbers, underscores, or dashes.' });
     }
 
     if (queue.length >= MAX_PAGES) {
@@ -136,46 +135,37 @@ app.post('/capture', async (req, res) => {
         console.log(`Navigating to URL: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
 
+        console.log(`Waiting for selector: ${selector}`);
+        await page.waitForSelector(selector, { timeout: 5000 });
+        const element = await page.$(selector);
+        if (!element) {
+            throw new Error('Element not found with the given selector.');
+        }
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
         }
 
-        const imageUrls = [];
+        const originalScreenshotPath = path.join(archiveDir, `${filename}-original.png`);
+        const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
-        for (const [index, selector] of selectors.entries()) {
-            console.log(`Waiting for selector: ${selector}`);
-            await page.waitForSelector(selector, { timeout: 5000 });
+        console.log(`Saving screenshot to: ${originalScreenshotPath}`);
+        await element.screenshot({ path: originalScreenshotPath });
 
-            const element = await page.$(selector);
-            if (!element) {
-                console.warn(`Element not found with selector: ${selector}`);
-                continue;
-            }
+        console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
+        await sharp(originalScreenshotPath)
+            .resize({ width: parseInt(width) || 300 })
+            .toFile(resizedScreenshotPath);
 
-            const originalScreenshotPath = path.join(archiveDir, `${filenamePrefix}-${index}-original.png`);
-            const resizedScreenshotPath = path.join(archiveDir, `${filenamePrefix}-${index}.png`);
-
-            console.log(`Saving screenshot for selector ${index} to: ${originalScreenshotPath}`);
-            await element.screenshot({ path: originalScreenshotPath });
-
-            console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
-            await sharp(originalScreenshotPath)
-                .resize({ width: parseInt(width) || 300 })
-                .toFile(resizedScreenshotPath);
-
-            if (fs.existsSync(originalScreenshotPath)) {
-                fs.unlinkSync(originalScreenshotPath);
-            }
-
-            const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filenamePrefix}-${index}.png`;
-            imageUrls.push(imageUrl);
+        if (fs.existsSync(originalScreenshotPath)) {
+            fs.unlinkSync(originalScreenshotPath);
         }
 
         console.log('Closing page...');
         await page.close();
 
-        res.status(200).send({ imageUrls });
+        const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filename}.png`;
+        res.status(200).send({ imageUrl });
     } catch (error) {
         console.error(`Error: ${error.message}`);
         res.status(500).send({ error: error.message });
