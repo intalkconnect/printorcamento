@@ -105,10 +105,10 @@ const queue = [];
 
 // Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
-    const { url, headerSelector, summarySelector, filename, width } = req.body;
+    const { url, filename, width } = req.body;
 
-    if (!url || !headerSelector || !summarySelector || !filename) {
-        return res.status(400).send({ error: 'URL, headerSelector, summarySelector, and filename are required.' });
+    if (!url || !filename) {
+        return res.status(400).send({ error: 'URL and filename are required.' });
     }
 
     if (!isValidFilename(filename)) {
@@ -135,37 +135,42 @@ app.post('/capture', async (req, res) => {
         console.log(`Navigating to URL: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
 
-        // Espera os dois elementos serem encontrados
+        // Espera extra para garantir que o conteúdo dinâmico esteja carregado
+        await page.waitForTimeout(1000);  // Ajuste o tempo de espera conforme necessário
+
         console.log('Waiting for header and summary...');
-        await page.waitForSelector(headerSelector, { timeout: 10000 });  // Espera até 10 segundos
-        await page.waitForSelector(summarySelector, { timeout: 10000 });
+        await page.waitForSelector('#header', { timeout: 20000 });
+        await page.waitForSelector('#summary', { timeout: 20000 });
 
-        // Captura as posições do header e do summary
-        const headerBox = await page.$eval(headerSelector, el => el.getBoundingClientRect());
-        const summaryBox = await page.$eval(summarySelector, el => el.getBoundingClientRect());
+        const headerElement = await page.$('#header');
+        const summaryElement = await page.$('#summary');
 
-        // Depuração: Verifique as coordenadas
-        console.log('Header coordinates:', headerBox);
-        console.log('Summary coordinates:', summaryBox);
+        // Verificar visibilidade dos elementos
+        const headerVisible = await headerElement.isIntersectingViewport();
+        const summaryVisible = await summaryElement.isIntersectingViewport();
 
-        // Verifica se as coordenadas são válidas (não são NaN)
-        if (isNaN(headerBox.top) || isNaN(headerBox.bottom) || isNaN(summaryBox.top) || isNaN(summaryBox.bottom)) {
-            throw new Error('Invalid coordinates: Ensure elements are visible and properly selected.');
+        if (!headerVisible || !summaryVisible) {
+            throw new Error('Os elementos não estão visíveis.');
         }
 
-        // Calcula a área a ser capturada (do início do header ao final do summary)
+        // Captura das coordenadas de ambos os elementos
+        const headerRect = await page.$eval('#header', el => el.getBoundingClientRect());
+        const summaryRect = await page.$eval('#summary', el => el.getBoundingClientRect());
+
+        console.log('Header coordinates:', headerRect);
+        console.log('Summary coordinates:', summaryRect);
+
+        // Calcular a área total para capturar da tela
         const clip = {
-            x: 0,
-            y: headerBox.top,
-            width: 375, // Largura da viewport
-            height: summaryBox.bottom - headerBox.top, // Distância entre o topo do header e o final do summary
+            x: headerRect.x,
+            y: headerRect.y,
+            width: summaryRect.x + summaryRect.width - headerRect.x,
+            height: summaryRect.y + summaryRect.height - headerRect.y
         };
 
-        // Verifica se o clip tem dimensões válidas
-        if (clip.height <= 0 || clip.width <= 0) {
-            throw new Error('Invalid clip dimensions. Ensure header and summary are properly selected.');
-        }
+        console.log('Clipping area:', clip);
 
+        // Criação do diretório "archives" se não existir
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
@@ -174,7 +179,7 @@ app.post('/capture', async (req, res) => {
         const originalScreenshotPath = path.join(archiveDir, `${filename}-original.png`);
         const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
-        console.log(`Capturing screenshot with custom clip...`);
+        console.log(`Saving screenshot to: ${originalScreenshotPath}`);
         await page.screenshot({ path: originalScreenshotPath, clip });
 
         console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
@@ -182,6 +187,7 @@ app.post('/capture', async (req, res) => {
             .resize({ width: parseInt(width) || 300 })
             .toFile(resizedScreenshotPath);
 
+        // Excluir o arquivo original após redimensionar
         if (fs.existsSync(originalScreenshotPath)) {
             fs.unlinkSync(originalScreenshotPath);
         }
