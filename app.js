@@ -135,42 +135,11 @@ app.post('/capture', async (req, res) => {
         console.log(`Navigating to URL: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
 
-        // Espera extra para garantir que o conteúdo dinâmico esteja carregado
-        await page.waitFor(1000);  // Espera 1 segundo
-
+        // Aguardar a visibilidade do header e summary
         console.log('Waiting for header and summary...');
-        await page.waitForSelector('#header', { timeout: 20000 });
-        await page.waitForSelector('#summary', { timeout: 20000 });
+        await page.waitForSelector('#header', { visible: true });
+        await page.waitForSelector('#summary', { visible: true });
 
-        const headerElement = await page.$('#header');
-        const summaryElement = await page.$('#summary');
-
-        // Verificar visibilidade dos elementos
-        const headerVisible = await headerElement.isIntersectingViewport();
-        const summaryVisible = await summaryElement.isIntersectingViewport();
-
-        if (!headerVisible || !summaryVisible) {
-            throw new Error('Os elementos não estão visíveis.');
-        }
-
-        // Captura das coordenadas de ambos os elementos
-        const headerRect = await page.$eval('#header', el => el.getBoundingClientRect());
-        const summaryRect = await page.$eval('#summary', el => el.getBoundingClientRect());
-
-        console.log('Header coordinates:', headerRect);
-        console.log('Summary coordinates:', summaryRect);
-
-        // Calcular a área total para capturar da tela
-        const clip = {
-            x: headerRect.x,
-            y: headerRect.y,
-            width: summaryRect.x + summaryRect.width - headerRect.x,
-            height: summaryRect.y + summaryRect.height - headerRect.y
-        };
-
-        console.log('Clipping area:', clip);
-
-        // Criação do diretório "archives" se não existir
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
@@ -180,14 +149,14 @@ app.post('/capture', async (req, res) => {
         const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
         console.log(`Saving screenshot to: ${originalScreenshotPath}`);
-        await page.screenshot({ path: originalScreenshotPath, clip });
+        const element = await page.$('#header');
+        await element.screenshot({ path: originalScreenshotPath });
 
         console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
         await sharp(originalScreenshotPath)
             .resize({ width: parseInt(width) || 300 })
             .toFile(resizedScreenshotPath);
 
-        // Excluir o arquivo original após redimensionar
         if (fs.existsSync(originalScreenshotPath)) {
             fs.unlinkSync(originalScreenshotPath);
         }
