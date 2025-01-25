@@ -143,6 +143,11 @@ app.post('/capture', async (req, res) => {
         const headerBox = await page.$eval(headerSelector, el => el.getBoundingClientRect());
         const summaryBox = await page.$eval(summarySelector, el => el.getBoundingClientRect());
 
+        // Verifica se as coordenadas são válidas (não são NaN)
+        if (isNaN(headerBox.top) || isNaN(headerBox.bottom) || isNaN(summaryBox.top) || isNaN(summaryBox.bottom)) {
+            throw new Error('Invalid coordinates: Ensure elements are visible and properly selected.');
+        }
+
         // Calcula a área a ser capturada (do início do header ao final do summary)
         const clip = {
             x: 0,
@@ -150,6 +155,11 @@ app.post('/capture', async (req, res) => {
             width: 375, // Largura da viewport
             height: summaryBox.bottom - headerBox.top, // Distância entre o topo do header e o final do summary
         };
+
+        // Verifica se o clip tem dimensões válidas
+        if (clip.height <= 0 || clip.width <= 0) {
+            throw new Error('Invalid clip dimensions. Ensure header and summary are properly selected.');
+        }
 
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
