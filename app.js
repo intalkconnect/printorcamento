@@ -105,10 +105,10 @@ const queue = [];
 
 // Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
-    const { url, selector, filename, width } = req.body;
+    const { url, headerSelector, summarySelector, filename, width } = req.body;
 
-    if (!url || !selector || !filename) {
-        return res.status(400).send({ error: 'URL, selector, and filename are required.' });
+    if (!url || !headerSelector || !summarySelector || !filename) {
+        return res.status(400).send({ error: 'URL, headerSelector, summarySelector, and filename are required.' });
     }
 
     if (!isValidFilename(filename)) {
@@ -135,12 +135,22 @@ app.post('/capture', async (req, res) => {
         console.log(`Navigating to URL: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
 
-        console.log(`Waiting for selector: ${selector}`);
-        await page.waitForSelector(selector, { timeout: 5000 });
-        const element = await page.$(selector);
-        if (!element) {
-            throw new Error('Element not found with the given selector.');
-        }
+        // Espera os dois elementos serem encontrados
+        await page.waitForSelector(headerSelector, { timeout: 5000 });
+        await page.waitForSelector(summarySelector, { timeout: 5000 });
+
+        // Captura as posições do header e do summary
+        const headerBox = await page.$eval(headerSelector, el => el.getBoundingClientRect());
+        const summaryBox = await page.$eval(summarySelector, el => el.getBoundingClientRect());
+
+        // Calcula a área a ser capturada (do início do header ao final do summary)
+        const clip = {
+            x: 0,
+            y: headerBox.top,
+            width: 375, // Largura da viewport
+            height: summaryBox.bottom - headerBox.top, // Distância entre o topo do header e o final do summary
+        };
+
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
@@ -149,8 +159,8 @@ app.post('/capture', async (req, res) => {
         const originalScreenshotPath = path.join(archiveDir, `${filename}-original.png`);
         const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
-        console.log(`Saving screenshot to: ${originalScreenshotPath}`);
-        await element.screenshot({ path: originalScreenshotPath });
+        console.log(`Capturing screenshot with custom clip...`);
+        await page.screenshot({ path: originalScreenshotPath, clip });
 
         console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
         await sharp(originalScreenshotPath)
