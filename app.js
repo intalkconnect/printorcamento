@@ -140,6 +140,18 @@ app.post('/capture', async (req, res) => {
         await page.waitForSelector('#header', { visible: true });
         await page.waitForSelector('#summary', { visible: true });
 
+        // Remover o estilo do #summary
+        console.log('Removing styles from #summary...');
+        await page.evaluate(() => {
+            const summary = document.querySelector('#summary');
+            if (summary) {
+                summary.removeAttribute('style'); // Remove o atributo "style"
+                summary.classList.forEach(className => {
+                    summary.classList.remove(className); // Remove todas as classes CSS
+                });
+            }
+        });
+
         const header = await page.$('#header');
         const summary = await page.$('#summary');
 
