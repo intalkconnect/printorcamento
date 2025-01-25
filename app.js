@@ -154,7 +154,7 @@ app.post('/capture', async (req, res) => {
             throw new Error('Could not get bounding boxes for header or summary.');
         }
 
-        // Definir área de captura do início do header até o fim do summary
+        // Modificação para capturar da parte superior do header até a parte inferior do summary
         const clip = {
             x: headerBox.x,
             y: headerBox.y,
