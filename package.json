@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
-    "puppeteer": "^23.11.1",
+    "puppeteer": "^24.1.1",
     "sharp": "^0.33.5"
   }
 }
