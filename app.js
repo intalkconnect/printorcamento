@@ -136,12 +136,17 @@ app.post('/capture', async (req, res) => {
         await page.goto(url, { waitUntil: 'networkidle2' });
 
         // Espera os dois elementos serem encontrados
-        await page.waitForSelector(headerSelector, { timeout: 5000 });
-        await page.waitForSelector(summarySelector, { timeout: 5000 });
+        console.log('Waiting for header and summary...');
+        await page.waitForSelector(headerSelector, { timeout: 10000 });  // Espera até 10 segundos
+        await page.waitForSelector(summarySelector, { timeout: 10000 });
 
         // Captura as posições do header e do summary
         const headerBox = await page.$eval(headerSelector, el => el.getBoundingClientRect());
         const summaryBox = await page.$eval(summarySelector, el => el.getBoundingClientRect());
+
+        // Depuração: Verifique as coordenadas
+        console.log('Header coordinates:', headerBox);
+        console.log('Summary coordinates:', summaryBox);
 
         // Verifica se as coordenadas são válidas (não são NaN)
         if (isNaN(headerBox.top) || isNaN(headerBox.bottom) || isNaN(summaryBox.top) || isNaN(summaryBox.bottom)) {
