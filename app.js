@@ -136,7 +136,7 @@ app.post('/capture', async (req, res) => {
         await page.goto(url, { waitUntil: 'networkidle2' });
 
         // Espera extra para garantir que o conteúdo dinâmico esteja carregado
-        await page.waitForTimeout(1000);  // Espera 1 segundo
+        await page.waitFor(1000);  // Espera 1 segundo
 
         console.log('Waiting for header and summary...');
         await page.waitForSelector('#header', { timeout: 20000 });
