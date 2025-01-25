@@ -140,6 +140,28 @@ app.post('/capture', async (req, res) => {
         await page.waitForSelector('#header', { visible: true });
         await page.waitForSelector('#summary', { visible: true });
 
+        const header = await page.$('#header');
+        const summary = await page.$('#summary');
+
+        if (!header || !summary) {
+            throw new Error('Could not find the required elements.');
+        }
+
+        const headerBox = await header.boundingBox();
+        const summaryBox = await summary.boundingBox();
+
+        if (!headerBox || !summaryBox) {
+            throw new Error('Could not get bounding boxes for header or summary.');
+        }
+
+        // Definir área de captura do início do header até o fim do summary
+        const clip = {
+            x: headerBox.x,
+            y: headerBox.y,
+            width: summaryBox.x + summaryBox.width - headerBox.x,
+            height: summaryBox.y + summaryBox.height - headerBox.y,
+        };
+
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
@@ -149,8 +171,7 @@ app.post('/capture', async (req, res) => {
         const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
 
         console.log(`Saving screenshot to: ${originalScreenshotPath}`);
-        const element = await page.$('#header');
-        await element.screenshot({ path: originalScreenshotPath });
+        await page.screenshot({ path: originalScreenshotPath, clip });
 
         console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
         await sharp(originalScreenshotPath)
