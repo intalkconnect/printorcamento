@@ -104,15 +104,16 @@ const MAX_PAGES = 5;
 const queue = [];
 
 // Endpoint para capturar screenshot
+// Endpoint para capturar screenshot
 app.post('/capture', async (req, res) => {
-    const { url, selector, filename, width } = req.body;
+    const { url, selectors, filenamePrefix, width } = req.body;
 
-    if (!url || !selector || !filename) {
-        return res.status(400).send({ error: 'URL, selector, and filename are required.' });
+    if (!url || !Array.isArray(selectors) || selectors.length === 0 || !filenamePrefix) {
+        return res.status(400).send({ error: 'URL, selectors (array), and filenamePrefix are required.' });
     }
 
-    if (!isValidFilename(filename)) {
-        return res.status(400).send({ error: 'Invalid filename format. Use only letters, numbers, underscores, or dashes.' });
+    if (!isValidFilename(filenamePrefix)) {
+        return res.status(400).send({ error: 'Invalid filename prefix format. Use only letters, numbers, underscores, or dashes.' });
     }
 
     if (queue.length >= MAX_PAGES) {
@@ -135,39 +136,46 @@ app.post('/capture', async (req, res) => {
         console.log(`Navigating to URL: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
 
-        console.log(`Waiting for selector: ${selector}`);
-        await page.waitForSelector(selector, { timeout: 5000 });
-
-        const element = await page.$(selector);
-        if (!element) {
-            throw new Error('Element not found with the given selector.');
-        }
-
         const archiveDir = path.join(__dirname, 'archives');
         if (!fs.existsSync(archiveDir)) {
             fs.mkdirSync(archiveDir, { recursive: true });
         }
 
-        const originalScreenshotPath = path.join(archiveDir, `${filename}-original.png`);
-        const resizedScreenshotPath = path.join(archiveDir, `${filename}.png`);
+        const imageUrls = [];
 
-        console.log(`Saving screenshot to: ${originalScreenshotPath}`);
-        await element.screenshot({ path: originalScreenshotPath });
+        for (const [index, selector] of selectors.entries()) {
+            console.log(`Waiting for selector: ${selector}`);
+            await page.waitForSelector(selector, { timeout: 5000 });
 
-        console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
-        await sharp(originalScreenshotPath)
-            .resize({ width: parseInt(width) || 300 })
-            .toFile(resizedScreenshotPath);
+            const element = await page.$(selector);
+            if (!element) {
+                console.warn(`Element not found with selector: ${selector}`);
+                continue;
+            }
 
-        if (fs.existsSync(originalScreenshotPath)) {
-            fs.unlinkSync(originalScreenshotPath);
+            const originalScreenshotPath = path.join(archiveDir, `${filenamePrefix}-${index}-original.png`);
+            const resizedScreenshotPath = path.join(archiveDir, `${filenamePrefix}-${index}.png`);
+
+            console.log(`Saving screenshot for selector ${index} to: ${originalScreenshotPath}`);
+            await element.screenshot({ path: originalScreenshotPath });
+
+            console.log(`Resizing image for mobile: width = ${parseInt(width) || 300}px`);
+            await sharp(originalScreenshotPath)
+                .resize({ width: parseInt(width) || 300 })
+                .toFile(resizedScreenshotPath);
+
+            if (fs.existsSync(originalScreenshotPath)) {
+                fs.unlinkSync(originalScreenshotPath);
+            }
+
+            const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filenamePrefix}-${index}.png`;
+            imageUrls.push(imageUrl);
         }
 
         console.log('Closing page...');
         await page.close();
 
-        const imageUrl = `${req.protocol}://${req.get('host')}/archives/${filename}.png`;
-        res.status(200).send({ imageUrl });
+        res.status(200).send({ imageUrls });
     } catch (error) {
         console.error(`Error: ${error.message}`);
         res.status(500).send({ error: error.message });
