@@ -127,8 +127,8 @@ app.post('/capture', async (req, res) => {
 
         console.log('Setting viewport for mobile resolution...');
         await page.setViewport({
-            width: 375,
-            height: 812,
+            width: 375, // Largura da tela definida para mobile
+            height: 812, // Altura da tela para mobile
             deviceScaleFactor: 2,
         });
 
@@ -154,12 +154,12 @@ app.post('/capture', async (req, res) => {
             throw new Error('Could not get bounding boxes for header or summary.');
         }
 
-        // Modificação para capturar da parte superior do header até a parte inferior do summary
+        // A largura do clip será igual à largura da tela
         const clip = {
             x: headerBox.x,
             y: headerBox.y,
-            width: summaryBox.x + summaryBox.width - headerBox.x,
-            height: summaryBox.y + summaryBox.height - headerBox.y,
+            width: 375, // Largura da tela
+            height: summaryBox.y + summaryBox.height - headerBox.y, // Captura do topo do header até o final do summary
         };
 
         const archiveDir = path.join(__dirname, 'archives');
